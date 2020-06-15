@@ -31,7 +31,9 @@ def generate_spectrum():
     values of next run, and call plot function.
     """
     filename = "parameters.txt"
-    if path.exists(filename):
+    #If the file exists already, we should read the parameters from memory. 
+    #If the file does not exist, default variables are in Variables.py
+    if path.exists(filename): 
         para= open(filename,"r")
         para_lines = para.readlines()
         var.LAMBDA = float(para_lines[0])
@@ -39,11 +41,10 @@ def generate_spectrum():
         var.ALPHA = float(para_lines[2])
         var.OMEGA = float(para_lines[3])
         var.R2 = float(para_lines[4])
-    event = "event"
+    
+    plot()
 
-    plot(event)
-
-    para = open(filename,"w")
+    para = open(filename,"w") #Save the variables that the user input to memory
     para.write(str(var.LAMBDA)+"\n")
     para.write(str(var.M0)+"\n")
     para.write(str(var.ALPHA)+"\n")
@@ -52,15 +53,15 @@ def generate_spectrum():
     para.close()
 
 def signal_of_time(t):
-    #Function used to create FID graph
+    #Mathematical function plotted to create FID graph
     return var.LAMBDA*var.M0*np.sin(var.ALPHA)*np.exp(1j*var.OMEGA*t-var.R2*t) 
 
 def signal_integrated(t):
-    #Function integrated over time to create NMR spectra
+    #Mathematical function integrated over time to create NMR spectra
     return var.LAMBDA*var.M0*np.sin(var.ALPHA)*np.exp(1j*var.OMEGA*t-var.R2*t)*np.exp(-1j*var.omega*t)
 
 def complex_quadrature(func, a, b, **kwargs):
-    #is able to integrate complex numbers
+    #This function returns the integration over the real and complex number spaces
     def real_func(x):
         return np.real(func(x))
     def imag_func(x):
@@ -70,8 +71,8 @@ def complex_quadrature(func, a, b, **kwargs):
     return (real_integral[0] + 1j*imag_integral[0], real_integral[1:], imag_integral[1:])
 
 def integrate(omega_vals):
-    #integrates signal_integrated for all values of omega_vals 
-    #returns an array of numbers that signify signal strength 
+    #Integrates signal_integrated for all values of omega_vals 
+    #Returns an array of numbers that signify signal strength 
     integrals = np.empty(len(omega_vals),dtype=complex)
     count = 0
     for omega in omega_vals:
@@ -81,21 +82,21 @@ def integrate(omega_vals):
         count+=1
     return integrals
 
-def plot(event):
-    
-    #plots two graphs, one with t and one with omega_vals
+#In order for buttons to call plot, plot must take in an event. We do not use the event though.
+def plot(event = nan):
+    #Plot two graphs, one with time and one with omega_vals
     t = np.arange(0, 5, 0.1)
     omega_vals = np.arange(-5, 5, 0.1)
 
-    signal1 = signal_of_time(t)
-    signal2 = integrate(omega_vals)
+    signal1 = signal_of_time(t) #Get array of y values for FID graph
+    signal2 = integrate(omega_vals) #Get array of y values function for NMR spectra
 
-    #this is just a way to change the graph titles depending on whether it's on or off resonance
+    #Change the graph titles depending on whether it's on or off resonance
     res = ": Off Resonance"
     if var.OMEGA == 0:
         res = ": On Resonance"
 
-    #This graphs the FID on the top left of the window
+    #Graph the FID on the top left of the window
     plt.subplot2grid((2, 3), (0, 0), colspan=2)
     plt.plot(t, np.real(signal1), label = 'real')
     plt.plot(t, np.imag(signal1), "r", label = "imaginary" )
@@ -103,7 +104,7 @@ def plot(event):
     plt.xlabel('time (s)')
     plt.legend()
 
-    #This graphs the NMR spectra on the bottom left of the window
+    #Graph the NMR spectra on the bottom left of the window
     plt.subplot2grid((2, 3), (1, 0),colspan=2)
     plt.plot(omega_vals, np.real(signal2), label = 'real' )
     plt.plot(omega_vals, np.imag(signal2), 'r', label = "imaginary" )
@@ -111,13 +112,14 @@ def plot(event):
     plt.xlabel('frequency (Hz)')
     plt.legend()
 
-    #This creates a user interface on the right side of the window
+    #Create the user interface on the right side of the window
     plt.subplot2grid((2, 3), (0, 2), rowspan=2)
     plt.axis("off")
     plt.text(0.2,0.95,"Input Values:")
     button = Button(plt.axes([0.72, 0.07, 0.23, 0.1]), 'Generate Spectrum', color="lightgoldenrodyellow", hovercolor='c')
     button.on_clicked(plot)
 
+    #Create a user text widget for each parameter and set the parameter values to the inputted values
     var_list = [str(var.LAMBDA),str(var.M0),str(round(np.degrees(var.ALPHA),3)),str(round(np.degrees(var.OMEGA),3)),str(var.R2)]
     var_names = ["Lambda: ","M Naught: ","Alpha: ","Omega: ","R2: "]
     separation = 0.0
@@ -132,7 +134,8 @@ def plot(event):
     plt.subplots_adjust(hspace = 0.6)
     plt.show() 
 
-#These functions will set the values of each parameter to the inputed value of that parameter
+#Functions to set the values of each parameter to the inputed value of that parameter
+#Called on line 132
 def set_lambda(text):
     var.LAMBDA = float(text)
 def set_M0(text):
