@@ -7,8 +7,6 @@ from scipy import *
 from scipy.integrate import quad
 from matplotlib.widgets import TextBox, Button
 from matplotlib.gridspec import GridSpec
-#from decimal import Decimal
-
 
 
 import os.path
@@ -18,8 +16,20 @@ from Variables import Variables as var
 pi = math.pi
 
 
-
-def user_var_input():
+def generate_spectrum():
+    """
+    This will create a user interface that plots FID and NMR spectra
+    ----------------------------------------------------------------
+    Parameters:
+        Lambda: proportionality constant between magnetic moment decay and signal
+        M Naught: initial magnitude of magnetic moment of sample
+        Alpha: angle of r.f. pulse
+        Omega: Phase difference between r.f. pulse ans signal
+        R2: spin-spin relaxation rate constant
+    ----------------------------------------------------------------
+    Function will create txt file with parameters of last run to use as initial 
+    values of next run, and call plot function.
+    """
     filename = "parameters.txt"
     if path.exists(filename):
         para= open(filename,"r")
@@ -41,14 +51,16 @@ def user_var_input():
     para.write(str(var.R2)+"\n")
     para.close()
 
-    
 def signal_of_time(t):
+    #Function used to create FID graph
     return var.LAMBDA*var.M0*np.sin(var.ALPHA)*np.exp(1j*var.OMEGA*t-var.R2*t) 
 
 def signal_integrated(t):
-    return var.LAMBDA*var.M0*np.sin(var.ALPHA)*np.exp(1j*var.OMEGA*t-var.R2*t)*np.exp(1j*var.omega*t)*np.exp(1j*var.omega*t)
+    #Function integrated over time to create NMR spectra
+    return var.LAMBDA*var.M0*np.sin(var.ALPHA)*np.exp(1j*var.OMEGA*t-var.R2*t)*np.exp(-1j*var.omega*t)
 
 def complex_quadrature(func, a, b, **kwargs):
+    #is able to integrate complex numbers
     def real_func(x):
         return np.real(func(x))
     def imag_func(x):
@@ -58,6 +70,8 @@ def complex_quadrature(func, a, b, **kwargs):
     return (real_integral[0] + 1j*imag_integral[0], real_integral[1:], imag_integral[1:])
 
 def integrate(omega_vals):
+    #integrates signal_integrated for all values of omega_vals 
+    #returns an array of numbers that signify signal strength 
     integrals = np.empty(len(omega_vals),dtype=complex)
     count = 0
     for omega in omega_vals:
@@ -67,51 +81,21 @@ def integrate(omega_vals):
         count+=1
     return integrals
 
-def plot_frequency():
-   
-    omega_vals = np.arange(-5, 5, 0.01)
-    signal = integrate(omega_vals)
-    fig, ax = plt.subplots()
-    ax.plot(omega_vals, np.real(signal), label = 'real')
-    ax.plot(omega_vals, np.imag(signal,),'r', label = 'imaginary')
-    res = ": Off Resonace"
-    if var.OMEGA == 0:
-        res = ": On Resonance"
-    ax.set(xlabel='Frequency (Hz)', ylabel='', title='NMR Signal'+res)
-    ax.legend()
-
-    ax.grid()
-
-    plt.show()
-
-def plot_time():
-   
-    t = np.arange(0, 5, 0.01)
-    signal = signal_of_time(t)
-    fig, ax = plt.subplots()
-    ax.plot(t, np.real(signal), label = 'real')
-    ax.plot(t, np.imag(signal),'r', label = 'imaginary')
-    res = ": Off Resonance"
-    if var.OMEGA == 0:
-        res = ": On Resonance"
-    ax.set(xlabel='Time (s)', ylabel='', title='FID'+res)
-    ax.legend()
-
-    ax.grid()
-
-    plt.show()
-
 def plot(event):
-    t = np.arange(0, 5, .2)
-    omega_vals = np.arange(-5, 5, 0.2)
+    
+    #plots two graphs, one with t and one with omega_vals
+    t = np.arange(0, 5, 0.1)
+    omega_vals = np.arange(-5, 5, 0.1)
 
     signal1 = signal_of_time(t)
     signal2 = integrate(omega_vals)
 
+    #this is just a way to change the graph titles depending on whether it's on or off resonance
     res = ": Off Resonance"
     if var.OMEGA == 0:
         res = ": On Resonance"
 
+    #This graphs the FID on the top left of the window
     plt.subplot2grid((2, 3), (0, 0), colspan=2)
     plt.plot(t, np.real(signal1), label = 'real')
     plt.plot(t, np.imag(signal1), "r", label = "imaginary" )
@@ -119,6 +103,7 @@ def plot(event):
     plt.xlabel('time (s)')
     plt.legend()
 
+    #This graphs the NMR spectra on the bottom left of the window
     plt.subplot2grid((2, 3), (1, 0),colspan=2)
     plt.plot(omega_vals, np.real(signal2), label = 'real' )
     plt.plot(omega_vals, np.imag(signal2), 'r', label = "imaginary" )
@@ -126,14 +111,14 @@ def plot(event):
     plt.xlabel('frequency (Hz)')
     plt.legend()
 
+    #This creates a user interface on the right side of the window
     plt.subplot2grid((2, 3), (0, 2), rowspan=2)
     plt.axis("off")
     plt.text(0.2,0.95,"Input Values:")
     button = Button(plt.axes([0.72, 0.07, 0.23, 0.1]), 'Generate Spectrum', color="lightgoldenrodyellow", hovercolor='c')
+    button.on_clicked(plot)
 
-    
-
-    var_list = [str(var.LAMBDA),str(var.M0),str(np.degrees(var.ALPHA)),str(np.degrees(var.OMEGA)),str(var.R2)]
+    var_list = [str(var.LAMBDA),str(var.M0),str(round(np.degrees(var.ALPHA),3)),str(round(np.degrees(var.OMEGA),3)),str(var.R2)]
     var_names = ["Lambda: ","M Naught: ","Alpha: ","Omega: ","R2: "]
     separation = 0.0
     text_boxes = []
@@ -143,10 +128,11 @@ def plot(event):
     func_list = [set_lambda,set_M0,set_aplha,set_omega,set_R2]
     for i in range (len(var_list)):
         text_boxes[i].on_submit(func_list[i])
-    button.on_clicked(plot)
+    
     plt.subplots_adjust(hspace = 0.6)
     plt.show() 
 
+#These functions will set the values of each parameter to the inputed value of that parameter
 def set_lambda(text):
     var.LAMBDA = float(text)
 def set_M0(text):
@@ -159,7 +145,11 @@ def set_R2(text):
     var.R2 = float(text)
 
 
-user_var_input()
+generate_spectrum()
+
+
+
+
 
 
 
